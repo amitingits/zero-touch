@@ -1,0 +1,77 @@
+# ===========================================================================
+# Zero-Touch ML — Helm Values
+# ===========================================================================
+# Override these at install time:
+#   helm install zero-touch-ml ./helm/zero-touch-ml \
+#       --set image.repository=myuser/zero-touch-ml \
+#       --set image.tag=v1.0.0
+# ===========================================================================
+
+# -- Replica count (overridden by HPA when enabled) ------------------------
+replicaCount: 2
+
+# -- Container image -------------------------------------------------------
+image:
+  repository: dockitamit/zero-touch-ml
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# -- Service ----------------------------------------------------------------
+service:
+  type: NodePort
+  port: 80
+  targetPort: 5000
+  nodePort: 30050
+
+# -- Resource limits & requests ---------------------------------------------
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+# -- Liveness & readiness probes --------------------------------------------
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 5000
+  initialDelaySeconds: 15
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 5000
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# -- Horizontal Pod Autoscaler ----------------------------------------------
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+# -- Rolling update strategy ------------------------------------------------
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+# -- Pod labels & annotations -----------------------------------------------
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "5000"
+  prometheus.io/path: "/metrics"
+
+# -- Additional environment variables for the container ---------------------
+env:
+  PORT: "5000"
+  PYTHONUNBUFFERED: "1"

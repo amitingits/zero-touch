@@ -1,0 +1,35 @@
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+*.egg-info
+.venv
+venv
+env
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# CI/CD & docs (not needed in image)
+jenkins/
+helm/
+scripts/
+docs/
+.github/
+tests/
+
+# Misc
+*.md
+!README.md
+Makefile
+.env
+.env.example
+*.log

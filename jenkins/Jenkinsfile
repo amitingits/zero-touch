@@ -1,0 +1,198 @@
+// ===========================================================================
+// Zero-Touch ML — Declarative Jenkins Pipeline
+// ===========================================================================
+// Stages:
+//   1. Checkout
+//   2. Setup Python Environment
+//   3. Train Model
+//   4. Run Tests
+//   5. Build Docker Image
+//   6. Security Scan (Trivy)
+//   7. Push Image to Registry
+//   8. Deploy to Kubernetes via Helm
+//   9. Verify Deployment
+// ===========================================================================
+
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_USERNAME  = credentials('docker-hub-username')   // Jenkins credential ID
+        DOCKER_PASSWORD  = credentials('docker-hub-password')   // Jenkins credential ID
+        IMAGE_NAME       = 'zero-touch-ml'
+        IMAGE_TAG        = "${env.BUILD_NUMBER}"
+        FULL_IMAGE       = "${DOCKER_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG}"
+        LATEST_IMAGE     = "${DOCKER_USERNAME}/${IMAGE_NAME}:latest"
+        HELM_RELEASE     = 'zero-touch-ml'
+        HELM_CHART       = 'helm/zero-touch-ml'
+        K8S_NAMESPACE    = 'default'
+    }
+
+    options {
+        timestamps()                    // Prefix console output with timestamps
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()       // Prevent parallel builds
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    stages {
+
+        // ---------------------------------------------------------------
+        // Stage 1 — Checkout
+        // ---------------------------------------------------------------
+        stage('Checkout') {
+            steps {
+                echo '📥 Pulling latest source code...'
+                checkout scm
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Stage 2 — Setup Python Environment
+        // ---------------------------------------------------------------
+        stage('Setup Python Environment') {
+            steps {
+                echo '🐍 Setting up Python virtual environment...'
+                sh '''
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    pip install --upgrade pip
+                    pip install -r service/requirements.txt
+                    pip install pytest flake8 black
+                '''
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Stage 3 — Train Model
+        // ---------------------------------------------------------------
+        stage('Train Model') {
+            steps {
+                echo '🧠 Training ML model...'
+                sh '''
+                    . venv/bin/activate
+                    python model/train.py
+                '''
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: 'model/artifacts/**', fingerprint: true
+                }
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Stage 4 — Run Tests
+        // ---------------------------------------------------------------
+        stage('Run Tests') {
+            steps {
+                echo '🧪 Running test suite...'
+                sh '''
+                    . venv/bin/activate
+                    python -m pytest tests/ -v --tb=short --junitxml=reports/test-results.xml
+                '''
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: 'reports/test-results.xml'
+                }
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Stage 5 — Build Docker Image
+        // ---------------------------------------------------------------
+        stage('Build Docker Image') {
+            steps {
+                echo "🐳 Building Docker image: ${FULL_IMAGE}"
+                sh "docker build -t ${FULL_IMAGE} -t ${LATEST_IMAGE} ."
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Stage 6 — Security Scan (Trivy)
+        // ---------------------------------------------------------------
+        stage('Security Scan') {
+            steps {
+                echo '🔒 Scanning image for vulnerabilities with Trivy...'
+                sh """
+                    trivy image \
+                        --severity HIGH,CRITICAL \
+                        --exit-code 0 \
+                        --format table \
+                        ${FULL_IMAGE}
+                """
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Stage 7 — Push Image to Registry
+        // ---------------------------------------------------------------
+        stage('Push Image') {
+            steps {
+                echo '📤 Pushing image to Docker Hub...'
+                sh '''
+                    echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+                    docker push ${FULL_IMAGE}
+                    docker push ${LATEST_IMAGE}
+                '''
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Stage 8 — Deploy to Kubernetes via Helm
+        // ---------------------------------------------------------------
+        stage('Deploy via Helm') {
+            steps {
+                echo "🚀 Deploying ${HELM_RELEASE} to Kubernetes..."
+                sh """
+                    helm upgrade --install ${HELM_RELEASE} ${HELM_CHART} \
+                        --set image.repository=${DOCKER_USERNAME}/${IMAGE_NAME} \
+                        --set image.tag=${IMAGE_TAG} \
+                        --namespace ${K8S_NAMESPACE} \
+                        --wait \
+                        --timeout 120s
+                """
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Stage 9 — Verify Deployment
+        // ---------------------------------------------------------------
+        stage('Verify Deployment') {
+            steps {
+                echo '✅ Verifying deployment rollout...'
+                sh """
+                    kubectl rollout status deployment/${HELM_RELEASE} \
+                        --namespace ${K8S_NAMESPACE} \
+                        --timeout=120s
+                """
+                echo '🔍 Checking pod status...'
+                sh "kubectl get pods -l app.kubernetes.io/name=${IMAGE_NAME} -n ${K8S_NAMESPACE}"
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------
+    // Post-pipeline actions
+    // -------------------------------------------------------------------
+    post {
+        success {
+            echo '🎉 Pipeline completed successfully!'
+            // Uncomment to enable Slack notification:
+            // slackSend channel: '#mlops', color: 'good',
+            //     message: "✅ ${env.JOB_NAME} #${env.BUILD_NUMBER} deployed successfully"
+        }
+        failure {
+            echo '❌ Pipeline failed — check logs above.'
+            // Uncomment to enable Slack notification:
+            // slackSend channel: '#mlops', color: 'danger',
+            //     message: "❌ ${env.JOB_NAME} #${env.BUILD_NUMBER} failed"
+        }
+        always {
+            echo '🧹 Cleaning up workspace...'
+            sh 'docker logout || true'
+            cleanWs()
+        }
+    }
+}

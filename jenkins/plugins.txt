@@ -1,0 +1,41 @@
+# ===========================================================================
+# Zero-Touch ML — Recommended Jenkins Plugins
+# ===========================================================================
+# Install these plugins via: Manage Jenkins → Manage Plugins → Available
+# Or use the Jenkins CLI:
+#   java -jar jenkins-cli.jar -s http://localhost:8080/ install-plugin <name>
+# ===========================================================================
+
+# Pipeline
+workflow-aggregator
+pipeline-stage-view
+pipeline-graph-view
+
+# Git integration
+git
+github
+github-branch-source
+
+# Docker
+docker-workflow
+docker-plugin
+
+# Kubernetes
+kubernetes
+kubernetes-cli
+
+# Credentials management
+credentials-binding
+plain-credentials
+
+# Test results
+junit
+
+# UI & notifications
+blueocean
+slack
+timestamper
+
+# Utilities
+ws-cleanup
+rebuild
