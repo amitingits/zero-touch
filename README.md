@@ -147,7 +147,7 @@ zero-touch/
 ### 1. Clone & Setup
 
 ```bash
-git clone https://github.com/<your-username>/zero-touch.git
+git clone https://github.com/amitingits/zero-touch.git
 cd zero-touch
 python -m venv venv
 

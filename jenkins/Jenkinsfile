@@ -22,7 +22,7 @@ pipeline {
         HELM_RELEASE     = 'zero-touch-ml'
         HELM_CHART       = 'helm/zero-touch-ml'
         K8S_NAMESPACE    = 'default'
-        KUBECONFIG       = '/var/jenkins_home/.kube/config'
+        KUBECONFIG       = '/var/jenkins_home/.kube/jenkins-config'
     }
 
     options {

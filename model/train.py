@@ -1,11 +1,3 @@
-"""
-Zero-Touch ML — Model Training Script
-======================================
-Trains a Random Forest classifier on the Iris dataset and exports:
-  - model/artifacts/model.pkl          (serialized model)
-  - model/artifacts/model_metadata.json (version, accuracy, features, etc.)
-"""
-
 import json
 import os
 import pickle
@@ -19,19 +11,16 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.model_selection import train_test_split
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-MODEL_VERSION = "1.0.0"
+#config
+MODEL_VERSION = "1.2.0"
 ARTIFACTS_DIR = os.path.join(os.path.dirname(__file__), "artifacts")
 MODEL_PATH = os.path.join(ARTIFACTS_DIR, "model.pkl")
 METADATA_PATH = os.path.join(ARTIFACTS_DIR, "model_metadata.json")
 RANDOM_STATE = 42
-TEST_SIZE = 0.2
+TEST_SIZE = 0.25
 
 
 def _git_sha() -> str:
-    """Return the short git SHA of HEAD, or 'unknown' if not in a repo."""
     try:
         sha = subprocess.check_output(
             ["git", "rev-parse", "--short", "HEAD"],
@@ -43,19 +32,16 @@ def _git_sha() -> str:
 
 
 def train() -> dict:
-    """Train the model and return its metadata dictionary."""
-
-    # ---- Data ----------------------------------------------------------
     iris = load_iris()
-    X, y = iris.data, iris.target  # type: ignore[attr-defined]
-    feature_names = list(iris.feature_names)  # type: ignore[attr-defined]
-    target_names = list(iris.target_names)  # type: ignore[attr-defined]
+    X, y = iris.data, iris.target 
+    feature_names = list(iris.feature_names) 
+    target_names = list(iris.target_names)  
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=y
     )
 
-    # ---- Training ------------------------------------------------------
+    # Training
     clf = RandomForestClassifier(
         n_estimators=100,
         max_depth=5,

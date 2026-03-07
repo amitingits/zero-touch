@@ -14,10 +14,12 @@ Complete step-by-step guide for setting up the project from scratch.
 6. [Docker Setup](#6-docker-setup)
 7. [Trivy Security Scanning](#7-trivy-security-scanning)
 8. [Minikube & Kubernetes](#8-minikube--kubernetes)
-9. [Helm Deployment](#9-helm-deployment)
+9. [Helm Deployment (Manual)](#9-helm-deployment-manual)
 10. [Jenkins CI/CD](#10-jenkins-cicd)
-11. [GitHub Repository Setup](#11-github-repository-setup)
-12. [End-to-End Pipeline Test](#12-end-to-end-pipeline-test)
+11. [Connect Jenkins to Minikube](#11-connect-jenkins-to-minikube)
+12. [Automatic Builds via GitHub Webhook](#12-automatic-builds-via-github-webhook)
+13. [Access the Live API](#13-access-the-live-api)
+14. [End-to-End Pipeline Test](#14-end-to-end-pipeline-test)
 
 ---
 
@@ -34,6 +36,7 @@ Install each tool in order. Verify each with the given command before proceeding
 | **kubectl** | Bundled with Docker Desktop, or install separately | `kubectl version --client` |
 | **Helm 3** | [helm.sh/docs/intro/install](https://helm.sh/docs/intro/install/) | `helm version` |
 | **Trivy** | [GitHub releases](https://github.com/aquasecurity/trivy/releases) | `trivy --version` |
+| **ngrok** | [ngrok.com/download](https://ngrok.com/download) | `ngrok version` |
 
 > **Windows users:** [Chocolatey](https://chocolatey.org/install) simplifies installs: `choco install minikube kubernetes-helm kubernetes-cli trivy`
 
@@ -42,20 +45,16 @@ Install each tool in order. Verify each with the given command before proceeding
 ## 2. Python Environment
 
 ```bash
-# Clone the repository
-git clone https://github.com/<your-username>/zero-touch.git
+git clone https://github.com/amitingits/zero-touch.git
 cd zero-touch
 
-# Create virtual environment
 python -m venv venv
 
-# Activate
 # Windows:
 venv\Scripts\activate
 # Linux / macOS:
 # source venv/bin/activate
 
-# Install dependencies
 pip install --upgrade pip
 pip install -r service/requirements.txt
 pip install pytest flake8 black
@@ -69,27 +68,11 @@ pip install pytest flake8 black
 python model/train.py
 ```
 
-**Expected output:**
-```
-============================================================
-Model Training Complete
-============================================================
-Accuracy : 0.9667
-Version  : 1.0.0
-------------------------------------------------------------
-              precision    recall  f1-score   support
-      setosa       1.00      1.00      1.00        10
-  versicolor       0.90      1.00      0.95        10
-   virginica       1.00      0.90      0.95        10
-    accuracy                           0.97        30
-
-Model saved   → model/artifacts/model.pkl
-Metadata saved → model/artifacts/model_metadata.json
-```
+**Expected:** Accuracy ~96%, generates `model/artifacts/model.pkl` and `model_metadata.json`.
 
 ---
 
-## 4. Run Tests
+## 4. Run Tests Locally
 
 ```bash
 python -m pytest tests/ -v
@@ -105,51 +88,33 @@ python -m pytest tests/ -v
 python service/app.py
 ```
 
-Test the API in a new terminal:
+Test in another terminal:
 
 ```bash
-# Health check
 curl http://localhost:5000/health
-
-# Prediction
 curl -X POST http://localhost:5000/predict \
   -H "Content-Type: application/json" \
   -d '{"features": [5.1, 3.5, 1.4, 0.2]}'
-
-# Model info
-curl http://localhost:5000/model/info
-
-# Prometheus metrics
-curl http://localhost:5000/metrics
 ```
 
 ---
 
 ## 6. Docker Setup
 
-> **Prerequisite:** Docker Desktop must be installed and running.
+> **Prerequisite:** Docker Desktop must be running.
 
-### Build the image
+### Build
 
 ```bash
 docker build -t <your-dockerhub-username>/zero-touch-ml:latest .
 ```
 
-> **Important:** Don't forget the `.` at the end — it specifies the build context.
+> **Important:** Don't forget the `.` at the end.
 
-### Run the container
+### Run
 
 ```bash
 docker run --rm -p 5000:5000 <your-dockerhub-username>/zero-touch-ml:latest
-```
-
-### Test it
-
-```bash
-curl http://localhost:5000/health
-curl -X POST http://localhost:5000/predict \
-  -H "Content-Type: application/json" \
-  -d '{"features": [6.0, 2.7, 5.1, 1.6]}'
 ```
 
 ### Push to Docker Hub
@@ -163,35 +128,21 @@ docker push <your-dockerhub-username>/zero-touch-ml:latest
 
 ## 7. Trivy Security Scanning
 
-> **Prerequisite:** Trivy must be installed.
-
-### Standalone scan
-
-```bash
-trivy image <your-dockerhub-username>/zero-touch-ml:latest
-```
-
-### Scan with severity filter
-
 ```bash
 trivy image --severity HIGH,CRITICAL <your-dockerhub-username>/zero-touch-ml:latest
 ```
-
-> Trivy also runs automatically in Jenkins pipeline Stage 6.
 
 ---
 
 ## 8. Minikube & Kubernetes
 
-> **Prerequisite:** Docker Desktop running, Minikube + kubectl installed.
-
-### Start the cluster
+### Start cluster
 
 ```bash
 minikube start --driver=docker --cpus=2 --memory=4096
 ```
 
-### Enable required addons
+### Enable addons
 
 ```bash
 minikube addons enable ingress
@@ -201,32 +152,24 @@ minikube addons enable dashboard
 
 ### Load Docker image into Minikube
 
-Minikube runs its own container runtime and **cannot access your local Docker images** directly. You must load the image:
+Minikube **cannot access your local Docker images** directly. You must load them:
 
 ```bash
 minikube image load <your-dockerhub-username>/zero-touch-ml:latest
 ```
 
-### Verify cluster
+### Verify
 
 ```bash
 kubectl cluster-info
 kubectl get nodes
 ```
 
-### (Optional) Open dashboard
-
-```bash
-minikube dashboard
-```
-
 ---
 
-## 9. Helm Deployment
+## 9. Helm Deployment (Manual)
 
-> **Prerequisite:** Helm 3 installed, Minikube running, image loaded into Minikube.
-
-### Lint the chart
+### Lint
 
 ```bash
 helm lint helm/zero-touch-ml
@@ -234,7 +177,7 @@ helm lint helm/zero-touch-ml
 
 ### Deploy
 
-Since the image is loaded locally into Minikube (not pulled from a remote registry), use `imagePullPolicy=Never`:
+Since the image is loaded locally, use `imagePullPolicy=Never`:
 
 ```bash
 helm upgrade --install zero-touch-ml helm/zero-touch-ml \
@@ -249,22 +192,7 @@ helm upgrade --install zero-touch-ml helm/zero-touch-ml \
 
 ```bash
 kubectl get pods -l app.kubernetes.io/name=zero-touch-ml
-kubectl get svc -l app.kubernetes.io/name=zero-touch-ml
-```
-
-### Access the API
-
-```bash
-minikube service zero-touch-ml --url
-```
-
-Use the returned URL to call the API:
-
-```bash
-curl <MINIKUBE_URL>/health
-curl -X POST <MINIKUBE_URL>/predict \
-  -H "Content-Type: application/json" \
-  -d '{"features": [5.1, 3.5, 1.4, 0.2]}'
+kubectl get svc zero-touch-ml
 ```
 
 ### Uninstall
@@ -277,101 +205,192 @@ helm uninstall zero-touch-ml
 
 ## 10. Jenkins CI/CD
 
-### Start Jenkins (via Docker)
+This project includes a **custom Jenkins Docker image** (`jenkins/Dockerfile`) that comes with Python, Docker CLI, kubectl, Helm, and Trivy pre-installed.
+
+### Build the custom Jenkins image
+
+```bash
+docker build -t jenkins-zero-touch -f jenkins/Dockerfile .
+```
+
+> This takes a few minutes on first build.
+
+### Start Jenkins
 
 ```bash
 docker run -d \
   -p 8080:8080 \
   -p 50000:50000 \
   -v jenkins_home:/var/jenkins_home \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $HOME/.kube:/var/jenkins_home/.kube \
   --name jenkins \
-  jenkins/jenkins:lts
+  jenkins-zero-touch
 ```
 
-### Get admin password
+> **Windows:** Replace `$HOME/.kube` with `%USERPROFILE%\.kube`
 
-```bash
-docker logs jenkins
-```
+### Initial setup
 
-Look for: `Please use the following password to proceed to installation:`
+1. Get admin password: `docker logs jenkins`
+2. Open `http://localhost:8080`, paste the password
+3. Install **suggested plugins**, create admin user
 
-### Initial Setup
+### Add Docker Hub credentials
 
-1. Open `http://localhost:8080`
-2. Paste the admin password
-3. Install **suggested plugins**
-4. Create your admin user
+1. `Manage Jenkins` → `Credentials` → `System` → `Global credentials`
+2. Add **Secret text**: ID = `docker-hub-username`, Value = *your Docker Hub username*
+3. Add **Secret text**: ID = `docker-hub-password`, Value = *your Docker Hub password/token*
 
-### Add Docker Hub Credentials
+### Create pipeline job
 
-1. Go to: `Manage Jenkins` → `Credentials` → `System` → `Global credentials`
-2. Add **Secret text** credential:
-   - ID: `docker-hub-username`
-   - Secret: *your Docker Hub username*
-3. Add another **Secret text** credential:
-   - ID: `docker-hub-password`
-   - Secret: *your Docker Hub password or access token*
-
-### Create Pipeline Job
-
-1. Click `New Item`
-2. Name: `zero-touch-ml` → select **Pipeline** → OK
-3. Scroll to **Pipeline** section:
+1. `New Item` → name: `zero-touch-ml` → select **Pipeline** → OK
+2. Under **Pipeline**:
    - Definition: `Pipeline script from SCM`
    - SCM: `Git`
    - Repository URL: `https://github.com/<your-username>/zero-touch.git`
    - Branch: `*/main`
    - Script Path: `jenkins/Jenkinsfile`
-4. Save and click **Build Now**
+   - **Uncheck "Lightweight checkout"** ← important!
+3. Save
 
 ---
 
-## 11. GitHub Repository Setup
+## 11. Connect Jenkins to Minikube
 
-### Create repository
+Jenkins runs inside a Docker container and needs special setup to reach Minikube (also a Docker container).
 
-1. Go to [github.com/new](https://github.com/new)
-2. Name: `zero-touch`
-3. Set to **Public** (for portfolio visibility)
-
-### Push code
+### Step 1 — Connect Jenkins to Minikube's Docker network
 
 ```bash
-cd zero-touch
-git init
-git add .
-git commit -m "Initial commit: Zero-Touch ML pipeline"
-git branch -M main
-git remote add origin https://github.com/<your-username>/zero-touch.git
-git push -u origin main
+docker network connect minikube jenkins
 ```
 
-### (Optional) Set up webhook for Jenkins
+### Step 2 — Copy Minikube TLS certificates into Jenkins
 
-1. In GitHub repo: `Settings` → `Webhooks` → `Add webhook`
-2. Payload URL: `http://<your-jenkins-url>:8080/github-webhook/`
+The kubeconfig references certificate files on your host machine. Jenkins needs its own copies:
+
+```bash
+docker cp $HOME/.minikube/profiles/minikube/client.crt jenkins:/var/jenkins_home/.kube/client.crt
+docker cp $HOME/.minikube/profiles/minikube/client.key jenkins:/var/jenkins_home/.kube/client.key
+docker cp $HOME/.minikube/ca.crt jenkins:/var/jenkins_home/.kube/ca.crt
+```
+
+> **Windows:** Replace `$HOME` with `%USERPROFILE%`
+
+### Step 3 — Create a separate kubeconfig for Jenkins
+
+This avoids conflicts with your local kubectl config:
+
+```bash
+docker exec jenkins cp /var/jenkins_home/.kube/config /var/jenkins_home/.kube/jenkins-config
+```
+
+Update it to use the Docker-internal IP and the copied certs:
+
+```bash
+docker exec jenkins kubectl config set-cluster minikube \
+  --server=https://192.168.49.2:8443 \
+  --certificate-authority=/var/jenkins_home/.kube/ca.crt \
+  --kubeconfig=/var/jenkins_home/.kube/jenkins-config
+
+docker exec jenkins kubectl config set-credentials minikube \
+  --client-certificate=/var/jenkins_home/.kube/client.crt \
+  --client-key=/var/jenkins_home/.kube/client.key \
+  --kubeconfig=/var/jenkins_home/.kube/jenkins-config
+```
+
+> **Note:** `192.168.49.2` is Minikube's default Docker network IP. Verify with: `docker inspect minikube --format "{{.NetworkSettings.Networks.minikube.IPAddress}}"`
+
+### Step 4 — Verify
+
+```bash
+docker exec jenkins kubectl get nodes --kubeconfig=/var/jenkins_home/.kube/jenkins-config
+```
+
+You should see the Minikube node. The Jenkinsfile is already configured to use `/var/jenkins_home/.kube/jenkins-config`.
+
+---
+
+## 12. Automatic Builds via GitHub Webhook
+
+Make Jenkins build automatically on every `git push`.
+
+### Start ngrok
+
+```bash
+ngrok http 8080
+```
+
+Note the public URL (e.g., `https://xxxx.ngrok-free.dev`).
+
+### Add webhook in GitHub
+
+1. Repo → `Settings` → `Webhooks` → `Add webhook`
+2. Payload URL: `https://xxxx.ngrok-free.dev/github-webhook/`
 3. Content type: `application/json`
 4. Events: `Just the push event`
 
-> For local Jenkins, you'll need **ngrok** to expose it to the internet for GitHub webhooks.
+### Enable in Jenkins
+
+1. Open the job → `Configure`
+2. Under **Build Triggers**, check **"GitHub hook trigger for GITScm polling"**
+3. Save
+
+Now every `git push` → Jenkins builds automatically!
+
+> **Note:** Free ngrok URLs change on restart. Update the GitHub webhook URL if you restart ngrok.
 
 ---
 
-## 12. End-to-End Pipeline Test
+## 13. Access the Live API
 
-Once everything is set up:
+After Jenkins deploys to Minikube, access your ML API using port-forwarding:
 
-1. Make a small change (e.g., update model version in `model/train.py`)
-2. Commit and push to GitHub
-3. Watch Jenkins pipeline run through all 9 stages
-4. Verify the new pod is running in Minikube:
+```bash
+kubectl port-forward svc/zero-touch-ml 5000:80
+```
+
+Keep that running, then in another terminal:
+
+```bash
+# Health check
+curl http://localhost:5000/health
+
+# Predict
+curl -X POST http://localhost:5000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"features": [5.1, 3.5, 1.4, 0.2]}'
+
+# Model info
+curl http://localhost:5000/model/info
+
+# Metrics
+curl http://localhost:5000/metrics
+```
+
+> **Why port-forward?** Minikube pods run in an isolated Docker network. `kubectl port-forward` creates a tunnel from your machine into the cluster. In production (AWS/GCP/Azure), a LoadBalancer or Ingress provides a public URL instead.
+
+---
+
+## 14. End-to-End Pipeline Test
+
+1. Make a code change (e.g., update a version string)
+2. Commit and push:
+   ```bash
+   git add .
+   git commit -m "test: trigger pipeline"
+   git push origin main
+   ```
+3. Watch Jenkins at `http://localhost:8080` — all 9 stages should pass
+4. Verify pods updated:
    ```bash
    kubectl get pods -l app.kubernetes.io/name=zero-touch-ml
    ```
-5. Test the deployed API:
+5. Port-forward and test the API:
    ```bash
-   minikube service zero-touch-ml --url
+   kubectl port-forward svc/zero-touch-ml 5000:80
+   curl http://localhost:5000/health
    ```
 
 🎉 **Congratulations!** Your Zero-Touch ML pipeline is fully operational.
