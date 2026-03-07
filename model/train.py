@@ -12,12 +12,12 @@ from sklearn.metrics import accuracy_score, classification_report
 from sklearn.model_selection import train_test_split
 
 #config
-MODEL_VERSION = "1.2.0"
+MODEL_VERSION = "1.3.0"
 ARTIFACTS_DIR = os.path.join(os.path.dirname(__file__), "artifacts")
 MODEL_PATH = os.path.join(ARTIFACTS_DIR, "model.pkl")
 METADATA_PATH = os.path.join(ARTIFACTS_DIR, "model_metadata.json")
 RANDOM_STATE = 42
-TEST_SIZE = 0.25
+TEST_SIZE = 0.2
 
 
 def _git_sha() -> str:
