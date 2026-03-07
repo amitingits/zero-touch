@@ -1,7 +1,7 @@
 {
   "model_name": "iris-random-forest",
   "version": "1.0.0",
-  "git_sha": "unknown",
+  "git_sha": "93c49af",
   "accuracy": 0.9333,
   "algorithm": "RandomForestClassifier",
   "n_estimators": 100,
@@ -21,7 +21,7 @@
   "n_classes": 3,
   "test_size": 0.2,
   "random_state": 42,
-  "trained_at": "2026-03-07T09:11:04.791019+00:00",
+  "trained_at": "2026-03-07T12:16:27.593166+00:00",
   "python_version": "3.13.1 (tags/v3.13.1:0671451, Dec  3 2024, 19:06:28) [MSC v.1942 64 bit (AMD64)]",
   "sklearn_version": "1.6.1"
 }

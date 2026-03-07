@@ -42,7 +42,7 @@ pipeline {
         // ---------------------------------------------------------------
         stage('Checkout') {
             steps {
-                echo '📥 Pulling latest source code...'
+                echo 'Pulling latest source code...'
                 checkout scm
             }
         }
@@ -52,7 +52,7 @@ pipeline {
         // ---------------------------------------------------------------
         stage('Setup Python Environment') {
             steps {
-                echo '🐍 Setting up Python virtual environment...'
+                echo 'Setting up Python virtual environment...'
                 sh '''
                     python3 -m venv venv
                     . venv/bin/activate
@@ -68,7 +68,7 @@ pipeline {
         // ---------------------------------------------------------------
         stage('Train Model') {
             steps {
-                echo '🧠 Training ML model...'
+                echo 'Training ML model...'
                 sh '''
                     . venv/bin/activate
                     python model/train.py
@@ -86,7 +86,7 @@ pipeline {
         // ---------------------------------------------------------------
         stage('Run Tests') {
             steps {
-                echo '🧪 Running test suite...'
+                echo 'Running test suite...'
                 sh '''
                     . venv/bin/activate
                     python -m pytest tests/ -v --tb=short --junitxml=reports/test-results.xml
@@ -104,7 +104,7 @@ pipeline {
         // ---------------------------------------------------------------
         stage('Build Docker Image') {
             steps {
-                echo "🐳 Building Docker image: ${FULL_IMAGE}"
+                echo "Building Docker image: ${FULL_IMAGE}"
                 sh "docker build -t ${FULL_IMAGE} -t ${LATEST_IMAGE} ."
             }
         }
@@ -114,7 +114,7 @@ pipeline {
         // ---------------------------------------------------------------
         stage('Security Scan') {
             steps {
-                echo '🔒 Scanning image for vulnerabilities with Trivy...'
+                echo 'Scanning image for vulnerabilities with Trivy...'
                 sh """
                     trivy image \
                         --severity HIGH,CRITICAL \
@@ -130,7 +130,7 @@ pipeline {
         // ---------------------------------------------------------------
         stage('Push Image') {
             steps {
-                echo '📤 Pushing image to Docker Hub...'
+                echo 'Pushing image to Docker Hub...'
                 sh '''
                     echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
                     docker push ${FULL_IMAGE}
@@ -144,7 +144,7 @@ pipeline {
         // ---------------------------------------------------------------
         stage('Deploy via Helm') {
             steps {
-                echo "🚀 Deploying ${HELM_RELEASE} to Kubernetes..."
+                echo "Deploying ${HELM_RELEASE} to Kubernetes..."
                 sh """
                     helm upgrade --install ${HELM_RELEASE} ${HELM_CHART} \
                         --set image.repository=${DOCKER_USERNAME}/${IMAGE_NAME} \
@@ -161,13 +161,13 @@ pipeline {
         // ---------------------------------------------------------------
         stage('Verify Deployment') {
             steps {
-                echo '✅ Verifying deployment rollout...'
+                echo 'Verifying deployment rollout...'
                 sh """
                     kubectl rollout status deployment/${HELM_RELEASE} \
                         --namespace ${K8S_NAMESPACE} \
                         --timeout=120s
                 """
-                echo '🔍 Checking pod status...'
+                echo 'Checking pod status...'
                 sh "kubectl get pods -l app.kubernetes.io/name=${IMAGE_NAME} -n ${K8S_NAMESPACE}"
             }
         }
@@ -178,19 +178,19 @@ pipeline {
     // -------------------------------------------------------------------
     post {
         success {
-            echo '🎉 Pipeline completed successfully!'
+            echo 'Pipeline completed successfully!'
             // Uncomment to enable Slack notification:
             // slackSend channel: '#mlops', color: 'good',
-            //     message: "✅ ${env.JOB_NAME} #${env.BUILD_NUMBER} deployed successfully"
+            //     message: "${env.JOB_NAME} #${env.BUILD_NUMBER} deployed successfully"
         }
         failure {
-            echo '❌ Pipeline failed — check logs above.'
+            echo 'Pipeline failed — check logs above.'
             // Uncomment to enable Slack notification:
             // slackSend channel: '#mlops', color: 'danger',
-            //     message: "❌ ${env.JOB_NAME} #${env.BUILD_NUMBER} failed"
+            //     message: "${env.JOB_NAME} #${env.BUILD_NUMBER} failed"
         }
         always {
-            echo '🧹 Cleaning up workspace...'
+            echo 'Cleaning up workspace...'
             sh 'docker logout || true'
             cleanWs()
         }

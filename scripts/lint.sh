@@ -15,7 +15,7 @@ echo " Zero-Touch ML — Code Quality Check"
 echo "============================================"
 
 if [ ! -d "$VENV_DIR" ]; then
-    echo "❌ Virtual environment not found. Run scripts/train-model.sh first."
+    echo "Virtual environment not found. Run scripts/train-model.sh first."
     exit 1
 fi
 
@@ -28,21 +28,21 @@ PASS=true
 
 # --- flake8 ---------------------------------------------------------------
 echo ""
-echo "🔍 Running flake8..."
+echo "Running flake8..."
 if flake8 service/ model/ tests/ --max-line-length=120 --exclude=__pycache__; then
-    echo "   ✅ flake8 passed"
+    echo "      flake8 passed"
 else
-    echo "   ❌ flake8 found issues"
+    echo "      flake8 found issues"
     PASS=false
 fi
 
 # --- black -----------------------------------------------------------------
 echo ""
-echo "🎨 Checking formatting with black..."
+echo "Checking formatting with black..."
 if black --check service/ model/ tests/ --line-length=120; then
-    echo "   ✅ black passed"
+    echo "   black passed"
 else
-    echo "   ❌ black found formatting issues (run: black service/ model/ tests/)"
+    echo "   black found formatting issues (run: black service/ model/ tests/)"
     PASS=false
 fi
 
@@ -50,11 +50,11 @@ fi
 echo ""
 if [ "$PASS" = true ]; then
     echo "============================================"
-    echo " ✅ All checks passed!"
+    echo " All checks passed!"
     echo "============================================"
 else
     echo "============================================"
-    echo " ❌ Some checks failed — see above"
+    echo " Some checks failed — see above"
     echo "============================================"
     exit 1
 fi

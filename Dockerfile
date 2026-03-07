@@ -5,8 +5,7 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /build
 
-# Install build-time OS dependencies (none needed for scikit-learn wheels,
-# but this layer exists for future extensibility)
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc && \
     rm -rf /var/lib/apt/lists/*

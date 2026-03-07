@@ -19,7 +19,7 @@ import pickle
 import time
 
 import numpy as np
-from flask import Flask, Response, jsonify, request
+from flask import Flask, Response, g, jsonify, request
 from prometheus_client import (
     CollectorRegistry,
     Counter,
@@ -105,11 +105,11 @@ def create_app() -> Flask:
     # ---- Middleware: request timing ----
     @app.before_request
     def _start_timer():
-        request._start_time = time.time()
+        g.start_time = time.time()
 
     @app.after_request
     def _record_metrics(response):
-        latency = time.time() - getattr(request, "_start_time", time.time())
+        latency = time.time() - getattr(g, "start_time", time.time())
         REQUEST_LATENCY.labels(endpoint=request.path).observe(latency)
         REQUEST_COUNT.labels(
             endpoint=request.path,
