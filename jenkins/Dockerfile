@@ -1,14 +1,3 @@
-# ===========================================================================
-# Custom Jenkins Image for Zero-Touch ML
-# ===========================================================================
-# Extends jenkins/jenkins:lts with:
-#   - Python 3 + pip
-#   - Docker CLI
-#   - kubectl
-#   - Helm 3
-#   - Trivy
-# ===========================================================================
-
 FROM jenkins/jenkins:lts
 
 USER root
@@ -49,7 +38,21 @@ RUN wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --
     apt-get install -y --no-install-recommends trivy && \
     rm -rf /var/lib/apt/lists/*
 
-# --- Add jenkins user to docker group (for socket access) -----------------
+# --- Fix Docker socket permissions ----------------------------------------
+# Ensure jenkins user can access Docker socket at runtime
 RUN groupadd -f docker && usermod -aG docker jenkins
 
-USER jenkins
+# Entrypoint script to fix socket permissions at startup
+RUN echo '#!/bin/bash\n\
+if [ -S /var/run/docker.sock ]; then\n\
+    DOCKER_GID=$(stat -c "%g" /var/run/docker.sock)\n\
+    if ! getent group $DOCKER_GID > /dev/null 2>&1; then\n\
+        groupadd -g $DOCKER_GID dockerhost\n\
+    fi\n\
+    DOCKER_GROUP=$(getent group $DOCKER_GID | cut -d: -f1)\n\
+    usermod -aG $DOCKER_GROUP jenkins\n\
+fi\n\
+exec /usr/local/bin/jenkins.sh "$@"' > /usr/local/bin/custom-entrypoint.sh && \
+    chmod +x /usr/local/bin/custom-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/custom-entrypoint.sh"]
