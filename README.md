@@ -103,7 +103,6 @@ zero-touch/
 │   ├── architecture.md             # Detailed architecture
 │   └── setup-guide.md              # Full setup walkthrough
 │
-├── .github/workflows/ci.yml        # GitHub Actions CI
 ├── Dockerfile                      # Multi-stage, non-root
 ├── .dockerignore
 ├── .gitignore
@@ -128,7 +127,6 @@ zero-touch/
 | **Jenkins** | CI/CD pipeline automation |
 | **Trivy** | Container vulnerability scanning |
 | **Prometheus** | Metrics endpoint (`/metrics`) |
-| **GitHub Actions** | Secondary CI (lint + test on PR) |
 | **pytest** | Test framework (24 tests) |
 
 ---
@@ -268,7 +266,6 @@ POST /predict
 - **🏷️ Model Versioning** — Metadata JSON with version, accuracy, git SHA, timestamps
 - **🐳 Secure Containers** — Multi-stage build, non-root user, Docker healthcheck
 - **🧪 Comprehensive Tests** — 24 tests (model unit + API integration)
-- **⚡ Dual CI** — Jenkins (full pipeline) + GitHub Actions (lint + test on PR)
 
 ---
 
