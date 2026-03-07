@@ -22,6 +22,7 @@ pipeline {
         HELM_RELEASE     = 'zero-touch-ml'
         HELM_CHART       = 'helm/zero-touch-ml'
         K8S_NAMESPACE    = 'default'
+        KUBECONFIG       = '/var/jenkins_home/.kube/config'
     }
 
     options {
@@ -143,6 +144,11 @@ pipeline {
         // Stage 8 — Deploy to Kubernetes via Helm
         // ---------------------------------------------------------------
         stage('Deploy via Helm') {
+            when {
+                expression {
+                    return sh(script: 'kubectl cluster-info > /dev/null 2>&1', returnStatus: true) == 0
+                }
+            }
             steps {
                 withCredentials([string(credentialsId: 'docker-hub-username', variable: 'DOCKER_USER')]) {
                     sh '''
@@ -161,6 +167,11 @@ pipeline {
         // Stage 9 — Verify Deployment
         // ---------------------------------------------------------------
         stage('Verify Deployment') {
+            when {
+                expression {
+                    return sh(script: 'kubectl cluster-info > /dev/null 2>&1', returnStatus: true) == 0
+                }
+            }
             steps {
                 echo 'Verifying deployment rollout...'
                 sh '''
