@@ -17,21 +17,18 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_USERNAME  = credentials('docker-hub-username')   // Jenkins credential ID
-        DOCKER_PASSWORD  = credentials('docker-hub-password')   // Jenkins credential ID
         IMAGE_NAME       = 'zero-touch-ml'
         IMAGE_TAG        = "${env.BUILD_NUMBER}"
-        FULL_IMAGE       = "${DOCKER_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG}"
-        LATEST_IMAGE     = "${DOCKER_USERNAME}/${IMAGE_NAME}:latest"
         HELM_RELEASE     = 'zero-touch-ml'
         HELM_CHART       = 'helm/zero-touch-ml'
         K8S_NAMESPACE    = 'default'
     }
 
     options {
-        timestamps()                    // Prefix console output with timestamps
+        timestamps()
         timeout(time: 30, unit: 'MINUTES')
-        disableConcurrentBuilds()       // Prevent parallel builds
+        disableConcurrentBuilds()
+        skipDefaultCheckout(true)
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
@@ -43,6 +40,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 echo 'Pulling latest source code...'
+                cleanWs()
                 checkout scm
             }
         }
@@ -104,8 +102,9 @@ pipeline {
         // ---------------------------------------------------------------
         stage('Build Docker Image') {
             steps {
-                echo "Building Docker image: ${FULL_IMAGE}"
-                sh "docker build -t ${FULL_IMAGE} -t ${LATEST_IMAGE} ."
+                withCredentials([string(credentialsId: 'docker-hub-username', variable: 'DOCKER_USER')]) {
+                    sh 'docker build -t $DOCKER_USER/$IMAGE_NAME:$IMAGE_TAG -t $DOCKER_USER/$IMAGE_NAME:latest .'
+                }
             }
         }
 
@@ -115,13 +114,9 @@ pipeline {
         stage('Security Scan') {
             steps {
                 echo 'Scanning image for vulnerabilities with Trivy...'
-                sh """
-                    trivy image \
-                        --severity HIGH,CRITICAL \
-                        --exit-code 0 \
-                        --format table \
-                        ${FULL_IMAGE}
-                """
+                withCredentials([string(credentialsId: 'docker-hub-username', variable: 'DOCKER_USER')]) {
+                    sh 'trivy image --severity HIGH,CRITICAL --exit-code 0 --format table $DOCKER_USER/$IMAGE_NAME:$IMAGE_TAG'
+                }
             }
         }
 
@@ -131,11 +126,16 @@ pipeline {
         stage('Push Image') {
             steps {
                 echo 'Pushing image to Docker Hub...'
-                sh '''
-                    echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-                    docker push ${FULL_IMAGE}
-                    docker push ${LATEST_IMAGE}
-                '''
+                withCredentials([
+                    string(credentialsId: 'docker-hub-username', variable: 'DOCKER_USER'),
+                    string(credentialsId: 'docker-hub-password', variable: 'DOCKER_PASS')
+                ]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker push $DOCKER_USER/$IMAGE_NAME:$IMAGE_TAG
+                        docker push $DOCKER_USER/$IMAGE_NAME:latest
+                    '''
+                }
             }
         }
 
@@ -144,15 +144,16 @@ pipeline {
         // ---------------------------------------------------------------
         stage('Deploy via Helm') {
             steps {
-                echo "Deploying ${HELM_RELEASE} to Kubernetes..."
-                sh """
-                    helm upgrade --install ${HELM_RELEASE} ${HELM_CHART} \
-                        --set image.repository=${DOCKER_USERNAME}/${IMAGE_NAME} \
-                        --set image.tag=${IMAGE_TAG} \
-                        --namespace ${K8S_NAMESPACE} \
-                        --wait \
-                        --timeout 120s
-                """
+                withCredentials([string(credentialsId: 'docker-hub-username', variable: 'DOCKER_USER')]) {
+                    sh '''
+                        helm upgrade --install $HELM_RELEASE $HELM_CHART \
+                            --set image.repository=$DOCKER_USER/$IMAGE_NAME \
+                            --set image.tag=$IMAGE_TAG \
+                            --namespace $K8S_NAMESPACE \
+                            --wait \
+                            --timeout 120s
+                    '''
+                }
             }
         }
 
@@ -162,13 +163,13 @@ pipeline {
         stage('Verify Deployment') {
             steps {
                 echo 'Verifying deployment rollout...'
-                sh """
-                    kubectl rollout status deployment/${HELM_RELEASE} \
-                        --namespace ${K8S_NAMESPACE} \
+                sh '''
+                    kubectl rollout status deployment/$HELM_RELEASE \
+                        --namespace $K8S_NAMESPACE \
                         --timeout=120s
-                """
+                '''
                 echo 'Checking pod status...'
-                sh "kubectl get pods -l app.kubernetes.io/name=${IMAGE_NAME} -n ${K8S_NAMESPACE}"
+                sh 'kubectl get pods -l app.kubernetes.io/name=$IMAGE_NAME -n $K8S_NAMESPACE'
             }
         }
     }
@@ -179,15 +180,9 @@ pipeline {
     post {
         success {
             echo 'Pipeline completed successfully!'
-            // Uncomment to enable Slack notification:
-            // slackSend channel: '#mlops', color: 'good',
-            //     message: "${env.JOB_NAME} #${env.BUILD_NUMBER} deployed successfully"
         }
         failure {
             echo 'Pipeline failed — check logs above.'
-            // Uncomment to enable Slack notification:
-            // slackSend channel: '#mlops', color: 'danger',
-            //     message: "${env.JOB_NAME} #${env.BUILD_NUMBER} failed"
         }
         always {
             echo 'Cleaning up workspace...'
