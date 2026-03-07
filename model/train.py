@@ -77,7 +77,7 @@ def train() -> dict:
     print("-" * 60)
     print(report)
 
-    # ---- Save artifacts ------------------------------------------------
+    # ---- Save artifacts --------------------------------------------
     os.makedirs(ARTIFACTS_DIR, exist_ok=True)
 
     with open(MODEL_PATH, "wb") as f:
