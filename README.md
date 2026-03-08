@@ -18,7 +18,7 @@
 
 ## 📖 Overview
 
-**Zero-Touch ML** is a production-grade MLOps pipeline that automates the entire journey from `git push` to a live ML inference API running on Kubernetes — with **zero manual intervention**.
+**Zero-Touch ML** is a production-grade MLOps pipeline that automates the entire journey from `git push` to a live ML inference API running on Kubernetes - with **zero manual intervention**.
 
 It demonstrates how trained machine learning models transition from development artifacts into scalable, containerized, security-scanned services deployed via Helm charts and orchestrated by Jenkins.
 
@@ -26,7 +26,7 @@ It demonstrates how trained machine learning models transition from development 
 Developer → git push → GitHub → Webhook → Jenkins CI Pipeline → Kubernetes → ML Inference API
 ```
 
-> **Model:** Random Forest classifier trained on the Iris dataset — intentionally simple so the focus stays on infrastructure automation.
+> **Model:** Random Forest classifier trained on the Iris dataset - intentionally simple so the focus stays on infrastructure automation.
 
 ---
 
@@ -259,13 +259,13 @@ POST /predict
 
 ## 🌟 Key Features
 
-- **🔒 DevSecOps** — Trivy container scanning in CI pipeline
-- **📊 Observability** — Prometheus metrics endpoint with request counters & latency histograms
-- **🔄 Zero-Downtime** — Rolling update strategy with `maxUnavailable: 0`
-- **📈 Auto-Scaling** — HorizontalPodAutoscaler (2→5 pods on CPU)
-- **🏷️ Model Versioning** — Metadata JSON with version, accuracy, git SHA, timestamps
-- **🐳 Secure Containers** — Multi-stage build, non-root user, Docker healthcheck
-- **🧪 Comprehensive Tests** — 24 tests (model unit + API integration)
+- **🔒 DevSecOps** - Trivy container scanning in CI pipeline
+- **📊 Observability** - Prometheus metrics endpoint with request counters & latency histograms
+- **🔄 Zero-Downtime** - Rolling update strategy with `maxUnavailable: 0`
+- **📈 Auto-Scaling** - HorizontalPodAutoscaler (2→5 pods on CPU)
+- **🏷️ Model Versioning** - Metadata JSON with version, accuracy, git SHA, timestamps
+- **🐳 Secure Containers** - Multi-stage build, non-root user, Docker healthcheck
+- **🧪 Comprehensive Tests** - 24 tests (model unit + API integration)
 
 ---
 
